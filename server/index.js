@@ -141,6 +141,45 @@ app.post("/api/tenants/add", async (req, res) => {
   }
 });
 
+// 7. DELETE TENANT (Remove from DB + Remove from Room)
+app.delete("/api/tenants/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Find the tenant to get their Room ID
+    const tenant = await Tenant.findById(id);
+    if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+
+    // 2. Remove tenant from the Room's occupant list
+    await Room.findByIdAndUpdate(tenant.room, {
+      $pull: { occupants: id },
+    });
+
+    // 3. Delete the tenant
+    await Tenant.findByIdAndDelete(id);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8. UPDATE TENANT DETAILS
+app.put("/api/tenants/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Simple update (Note: If changing rooms, more logic is needed.
+    // For now, we assume room doesn't change in simple edit).
+    const tenant = await Tenant.findByIdAndUpdate(id, updates, { new: true });
+
+    res.json(tenant);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 5. SEED ROUTE (Updates DB with the new structure)
 app.get("/seed", async (req, res) => {
   try {
