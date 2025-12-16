@@ -88,7 +88,12 @@ export default function Tenants() {
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
-      alert("Operation failed. Check console.");
+      // THE FIX: Check if the server sent a specific error message
+      if (err.response && err.response.data && err.response.data.error) {
+        alert(err.response.data.error); // Alerts: "Room 101 is full!"
+      } else {
+        alert("Operation failed. Check console.");
+      }
     }
   };
 

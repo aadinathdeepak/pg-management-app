@@ -119,11 +119,20 @@ app.post("/api/tenants/add", async (req, res) => {
     const room = await Room.findOne({ roomNumber });
     if (!room) return res.status(404).json({ error: "Room not found" });
 
-    // 2. Create the Tenant
+    // 2. CHECK CAPACITY (The Fix)
+    if (room.occupants.length >= room.capacity) {
+      return res
+        .status(400)
+        .json({
+          error: `Room ${roomNumber} is full! Capacity is ${room.capacity}.`,
+        });
+    }
+
+    // 3. Create the Tenant
     const newTenant = await Tenant.create({
       name,
       phone,
-      room: room._id, // Link to room ID
+      room: room._id,
       joinDate: new Date(joinDate),
       depositAmount,
       rentAmount,
@@ -131,7 +140,7 @@ app.post("/api/tenants/add", async (req, res) => {
       rentHistory: [],
     });
 
-    // 3. Update Room's Occupant List
+    // 4. Update Room's Occupant List
     room.occupants.push(newTenant._id);
     await room.save();
 
