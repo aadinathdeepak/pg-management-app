@@ -5,17 +5,19 @@ const TenantSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   room: { type: mongoose.Schema.Types.ObjectId, ref: "Room" },
 
-  // Financials
-  rentAmount: { type: Number, required: true }, // How much they pay per month
-  totalDues: { type: Number, default: 0 }, // Total accummulated debt (e.g., 5000)
+  // NEW: Essential for calculating "N/A" months
+  joinDate: { type: Date, required: true, default: Date.now },
 
-  // The Month-Wise Tracker
+  rentAmount: { type: Number, required: true },
+  totalDues: { type: Number, default: 0 },
+  depositAmount: { type: Number, required: true, default: 0 },
+
   rentHistory: [
     {
-      month: { type: String, required: true }, // e.g., "Dec 2024"
+      month: String, // e.g. "Jan 2024"
       amount: Number,
       status: { type: String, enum: ["Paid", "Pending"], default: "Pending" },
-      paymentDate: Date, // Optional: Record when they actually paid
+      paymentDate: Date,
     },
   ],
 });

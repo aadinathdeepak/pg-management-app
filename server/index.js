@@ -76,6 +76,71 @@ app.post("/api/tenants/pay", async (req, res) => {
   res.json({ success: true });
 });
 
+app.post("/api/tenants/toggle-rent", async (req, res) => {
+  const { tenantId, month } = req.body;
+
+  const tenant = await Tenant.findById(tenantId);
+  if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+
+  // Check if we already have a record for this month
+  const recordIndex = tenant.rentHistory.findIndex((r) => r.month === month);
+
+  if (recordIndex > -1) {
+    // FOUND: Toggle it (Paid <-> Pending)
+    const record = tenant.rentHistory[recordIndex];
+    if (record.status === "Paid") {
+      record.status = "Pending";
+      tenant.totalDues += record.amount; // Add debt back
+    } else {
+      record.status = "Paid";
+      tenant.totalDues -= record.amount; // Clear debt
+    }
+  } else {
+    // NOT FOUND: Create it as PAID (Clicking an empty box implies paying)
+    tenant.rentHistory.push({
+      month: month,
+      amount: tenant.rentAmount,
+      status: "Paid",
+      paymentDate: new Date(),
+    });
+    // No change to totalDues needed because it wasn't tracked as debt yet
+  }
+
+  await tenant.save();
+  res.json({ success: true });
+});
+
+app.post("/api/tenants/add", async (req, res) => {
+  try {
+    const { name, phone, roomNumber, joinDate, depositAmount, rentAmount } =
+      req.body;
+
+    // 1. Find the Room
+    const room = await Room.findOne({ roomNumber });
+    if (!room) return res.status(404).json({ error: "Room not found" });
+
+    // 2. Create the Tenant
+    const newTenant = await Tenant.create({
+      name,
+      phone,
+      room: room._id, // Link to room ID
+      joinDate: new Date(joinDate),
+      depositAmount,
+      rentAmount,
+      totalDues: 0,
+      rentHistory: [],
+    });
+
+    // 3. Update Room's Occupant List
+    room.occupants.push(newTenant._id);
+    await room.save();
+
+    res.json(newTenant);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 5. SEED ROUTE (Updates DB with the new structure)
 app.get("/seed", async (req, res) => {
   try {
@@ -83,69 +148,65 @@ app.get("/seed", async (req, res) => {
     await Tenant.deleteMany({});
     await Complaint.deleteMany({});
 
-    // Create Rooms
     const r1 = await Room.create({
       roomNumber: "101",
       capacity: 2,
       price: 6000,
     });
-    const r2 = await Room.create({
-      roomNumber: "102",
-      capacity: 3,
-      price: 4500,
-    });
+    const year = new Date().getFullYear();
 
-    // Create Tenants with Rent History
+    // Tenant 1
     const t1 = await Tenant.create({
       name: "Arjun Kumar",
       phone: "9876543210",
       room: r1._id,
+      joinDate: new Date(`${year}-01-01`),
+      depositAmount: 15000, // NEW
       rentAmount: 6000,
-      totalDues: 0, // All paid
-      rentHistory: [
-        {
-          month: "Nov 2024",
-          amount: 6000,
-          status: "Paid",
-          paymentDate: new Date(),
-        },
-        {
-          month: "Dec 2024",
-          amount: 6000,
-          status: "Paid",
-          paymentDate: new Date(),
-        },
-      ],
+      totalDues: 0,
+      rentHistory: [],
     });
 
+    // Tenant 2
     const t2 = await Tenant.create({
       name: "Vivek Singh",
       phone: "9123456789",
       room: r1._id,
+      joinDate: new Date(`${year}-05-01`),
+      depositAmount: 12000, // NEW
       rentAmount: 6000,
-      totalDues: 6000, // Owes for December
-      rentHistory: [
-        {
-          month: "Nov 2024",
-          amount: 6000,
-          status: "Paid",
-          paymentDate: new Date(),
-        },
-        { month: "Dec 2024", amount: 6000, status: "Pending" }, // This creates the Red Flag
-      ],
+      totalDues: 0,
+      rentHistory: [],
     });
 
     r1.occupants.push(t1._id, t2._id);
     await r1.save();
 
-    await Complaint.create({
-      roomNumber: "101",
-      issueType: "WiFi",
-      description: "Signal weak",
-      isResolved: false,
-    });
+    await Complaint.create([
+      {
+        roomNumber: "101",
+        issueType: "WiFi",
+        description: "Signal is extremely weak near the window",
+        isResolved: false,
+        dateRaised: new Date(),
+      },
+      {
+        roomNumber: "101",
+        issueType: "Plumbing",
+        description: "Bathroom tap is leaking continuously",
+        isResolved: false,
+        dateRaised: new Date(new Date().setDate(new Date().getDate() - 2)), // 2 days ago
+      },
+      {
+        roomNumber: "101",
+        issueType: "Electrical",
+        description: "Fan regulator is not working properly",
+        isResolved: true, // This one is already fixed
+        dateRaised: new Date(new Date().setDate(new Date().getDate() - 5)), // 5 days ago
+      },
+    ]);
 
-    res.send("Database Seeded with Month-Wise Tracking!");
+    res.send("Database Updated with Deposits!");
   } catch (err) {
     res.status(500).send(err.message);
   }
