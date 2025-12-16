@@ -192,6 +192,19 @@ app.get("/seed", async (req, res) => {
       capacity: 2,
       price: 6000,
     });
+
+    const additionalRooms = [];
+    for (let i = 102; i <= 115; i++) {
+      additionalRooms.push({
+        roomNumber: i.toString(),
+        capacity: 3, // You had 3 for most rooms
+        price: 9000, // You had 9000 for most rooms
+        occupants: [],
+      });
+    }
+    // Insert all 14 rooms in one go (Fast!)
+    await Room.insertMany(additionalRooms);
+
     const year = new Date().getFullYear();
 
     // Tenant 1
