@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment Variables (Secrets)
+.env
+*/.env
+
+# Build Outputs
+dist/
+build/
+
+# Logs and System Files
+*.log
+.DS_Store
+.vscode/
+coverage/
